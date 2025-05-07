@@ -12,19 +12,26 @@ public class Register(ILogger<Register> logger)
     private readonly ILogger<Register> _logger = logger;
 
     [Function(nameof(Register))]
-    [SqlOutput("dbo.Websites","WebsiteWatcher")]
-    public async Task<Website> Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post")] HttpRequest req)
+    [SqlOutput("dbo.Websites", "WebsiteWatcher")]
+    public async Task<Website?> Run(
+        [HttpTrigger(AuthorizationLevel.Anonymous,"post")] HttpRequest req)
     {
         _logger.LogInformation("C# HTTP trigger function processed a request.");
 
-        var requestBody= await new StreamReader(req.Body).ReadToEndAsync();
-        var options= new JsonSerializerOptions() { PropertyNameCaseInsensitive=false };
+        var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+        if (requestBody is null)
+            return null; //no ouput to sql
+
+        var options = new JsonSerializerOptions() { PropertyNameCaseInsensitive = false };
         var newWebsite = JsonSerializer.Deserialize<Website>(requestBody, options);
+
+        if (newWebsite == null)
+            return null; //no ouput to sql
 
         newWebsite.Id = Guid.NewGuid();
 
         return newWebsite;
+
     }
 }
 
