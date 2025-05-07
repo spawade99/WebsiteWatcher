@@ -32,8 +32,17 @@ public class PdfCreator(ILoggerFactory loggerFactory)
             _logger.LogInformation($"PDF Stream: {pdfStream.Length} bytes");
             //get swtorage connection string from environment variable
             var storageConnection = Environment.GetEnvironmentVariable("ConnectionStrings:WebsiteWatcherStorage");
-            BlobClient blobClient = new BlobClient(storageConnection, "pdfs", $"{change.Item.Id}.pdf");
-            await blobClient.UploadAsync(pdfStream);
+
+            //create blob client
+            BlobServiceClient blobServiceClient = new BlobServiceClient(storageConnection);
+            BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient("pdfs");
+
+            // Ensure the container exists
+            await containerClient.CreateIfNotExistsAsync();
+
+            // Create blob client
+            BlobClient blobClient = containerClient.GetBlobClient($"{change.Item.Id}.pdf");
+            await blobClient.UploadAsync(pdfStream,true);
         }
     }
     private async Task<Stream> ConvertPageToPDFAsync(string url)
