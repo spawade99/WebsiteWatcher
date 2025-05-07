@@ -1,3 +1,4 @@
+using Azure.Storage.Blobs;
 using HtmlAgilityPack;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Extensions.Sql;
@@ -14,12 +15,10 @@ public class PdfCreator(ILoggerFactory loggerFactory)
 
     // Visit https://aka.ms/sqltrigger to learn how to use this trigger binding
     [Function(nameof(PdfCreator))]
-    [BlobOutput("pdf/new.pdf", Connection = "WebsiteWatcherStorage")]
-    public async Task<byte[]?> Run(
+    public async Task Run(
         [SqlTrigger("Websites", "WebsiteWatcher")] SqlChange<Website>[] changes,
             FunctionContext context)
     {
-        byte[]? buffer = null;
         foreach (var change in changes)
         {
             if (change.Operation != SqlChangeOperation.Insert) continue;
@@ -28,15 +27,15 @@ public class PdfCreator(ILoggerFactory loggerFactory)
             if (pdfStream == null)
             {
                 _logger.LogError("Failed to convert page to PDF.");
-                return null;
+                return ;
             }
-            buffer = new byte[pdfStream.Length];
-            await pdfStream.ReadAsync(buffer);
             _logger.LogInformation($"PDF Stream: {pdfStream.Length} bytes");
+            //get swtorage connection string from environment variable
+            var storageConnection = Environment.GetEnvironmentVariable("ConnectionStrings:WebsiteWatcherStorage");
+            BlobClient blobClient = new BlobClient(storageConnection, "pdfs", $"{change.Item.Id}.pdf");
+            await blobClient.UploadAsync(pdfStream);
         }
-        return buffer;
     }
-
     private async Task<Stream> ConvertPageToPDFAsync(string url)
     {
         var browserFetcher = new BrowserFetcher();
